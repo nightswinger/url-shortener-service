@@ -1,0 +1,58 @@
+service: simple-url-shortener
+
+provider:
+  name: aws
+  region: ${opt:region, 'us-east-1'}
+  runtime: ruby2.5
+  environment:
+    DYNAMODB_TABLE: url-shortener-${opt:stage, 'dev'}
+    HASHIDS_SALT: 'This is my salt'
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: 'arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}'
+
+plugins:
+  - serverless-hooks-plugin
+
+custom:
+  hooks:
+    package:initialize:
+      - bundle install --deployment
+
+functions:
+  redirectOriginal:
+    handler: routes/index.handler
+    events:
+      - http:
+          path: /{code}
+          method: get
+  shortener:
+    handler: routes/url.handler
+    events:
+      - http:
+          path: url/shortener
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    UrlShortenerTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1

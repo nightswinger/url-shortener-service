@@ -1,0 +1,6 @@
+.bundle
+.serverless
+node_modules
+Gemfile.lock
+package-lock.json
+vendor
